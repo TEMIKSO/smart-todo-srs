@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Интервальное повторение</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Интервальное повторение</h1>
+    <p class="subtitle">Учись эффективно — повторяй в нужный момент!</p>
+
+    <div class="input-section">
+      <input type="text" id="questionInput" placeholder="Введите вопрос...">
+      <input type="text" id="answerInput" placeholder="Введите ответ...">
+      <button onclick="addCard()">Добавить карточку</button>
+    </div>
+
+    <ul id="cardList"></ul>
+
+    <div class="stats">
+      <h3>Прогресс обучения</h3>
+      <p>Всего карточек: <span id="totalCards">0</span></p>
+      <p>Изучено: <span id="learnedCards">0</span></p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
