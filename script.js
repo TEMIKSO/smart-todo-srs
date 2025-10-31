@@ -4,7 +4,7 @@ function addTask() {
 
   // Валидация - проверяем, что поле не пустое
   if (taskText === "") {
-    alert('Введите текст задачи!');
+    alert('Пожалуйста, введите текст задачи!');
     return;
   }
 
@@ -14,7 +14,7 @@ function addTask() {
 
   li.innerHTML = `
     <span>${taskText}</span>
-    <button onclick="this.parentElement.remove()">Удалить</button>
+    <button onclick="removeTask(this)">❌ Удалить</button>
   `;
 
   taskList.appendChild(li);
@@ -24,3 +24,7 @@ function addTask() {
   taskInput.focus();
 }
 
+// Добавляем отдельную функцию для удаления
+function removeTask(button) {
+  button.parentElement.remove();
+}
