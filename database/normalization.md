@@ -21,3 +21,5 @@
 ### Схемы нормализации
 - Основная схема: [schema.sql](https://github.com/TEMIKSO/smart-todo-srs/blob/main/database/schema.sql.txt)
 - Тестовые данные: [seed_data.sql](https://github.com/TEMIKSO/smart-todo-srs/blob/main/database/seed_data.sql.txt)
+
+WIKI: https://github.com/TEMIKSO/smart-todo-srs/wiki/Процесс-проектирования-и-нормализации
