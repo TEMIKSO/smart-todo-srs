@@ -1,58 +1,79 @@
 -- Пользователи системы
+-- Хранит информацию о зарегистрированных пользователях приложения
+-- Каждый пользователь имеет уникальные username и email для идентификации
 CREATE TABLE Users (
-    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    created_at TEXT DEFAULT (datetime('now'))
+    user_id INTEGER PRIMARY KEY AUTOINCREMENT,        -- Уникальный идентификатор пользователя, автоматически увеличивается
+    username TEXT NOT NULL UNIQUE,                    -- Уникальное имя пользователя (логин)
+    email TEXT NOT NULL UNIQUE,                       -- Уникальный email для связи и восстановления
+    created_at TEXT DEFAULT (datetime('now'))         -- Дата и время регистрации пользователя
 );
 
 -- Колоды карточек
+-- Группирует карточки по темам или категориям для удобства организации обучения
+-- Пользователь может создавать multiple колод для разных предметов
 CREATE TABLE Decks (
-    deck_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    description TEXT,
-    user_id INTEGER NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+    deck_id INTEGER PRIMARY KEY AUTOINCREMENT,        -- Уникальный идентификатор колоды
+    name TEXT NOT NULL,                               -- Название колоды (например "Английские слова", "Математика")
+    description TEXT,                                 -- Описание колоды (необязательное)
+    user_id INTEGER NOT NULL,                         -- Владелец колоды (связь с пользователем)
+    created_at TEXT DEFAULT (datetime('now')),        -- Дата создания колоды
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE  -- При удалении пользователя удаляются все его колоды
 );
 
 -- Карточки для запоминания
+-- Основная сущность системы - карточка с вопросом и ответом
+-- Содержит учебный материал для запоминания
 CREATE TABLE Cards (
-    card_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    question TEXT NOT NULL,
-    answer TEXT NOT NULL,
-    user_id INTEGER NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+    card_id INTEGER PRIMARY KEY AUTOINCREMENT,        -- Уникальный идентификатор карточки
+    question TEXT NOT NULL,                           -- Вопрос или термин для запоминания (лицевая сторона карточки)
+    answer TEXT NOT NULL,                             -- Ответ или определение (обратная сторона карточки)
+    user_id INTEGER NOT NULL,                         -- Владелец карточки
+    created_at TEXT DEFAULT (datetime('now')),        -- Дата создания карточки
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE  -- Каскадное удаление при удалении пользователя
 );
 
 -- Связь многие-ко-многим между колодами и карточками
+-- Разрешает ситуацию, когда одна карточка может принадлежать нескольким колодам,
+-- а одна колода может содержать множество карточек
 CREATE TABLE Deck_Cards (
-    deck_id INTEGER,
-    card_id INTEGER,
-    assigned_at TEXT DEFAULT (datetime('now')),
-    PRIMARY KEY (deck_id, card_id),
-    FOREIGN KEY (deck_id) REFERENCES Decks(deck_id) ON DELETE CASCADE,
-    FOREIGN KEY (card_id) REFERENCES Cards(card_id) ON DELETE CASCADE
+    deck_id INTEGER,                                  -- Ссылка на колоду
+    card_id INTEGER,                                  -- Ссылка на карточку
+    assigned_at TEXT DEFAULT (datetime('now')),       -- Дата добавления карточки в колоду
+    PRIMARY KEY (deck_id, card_id),                   -- Составной первичный ключ гарантирует уникальность связи
+    FOREIGN KEY (deck_id) REFERENCES Decks(deck_id) ON DELETE CASCADE,    -- Удаление колоды удаляет связи
+    FOREIGN KEY (card_id) REFERENCES Cards(card_id) ON DELETE CASCADE     -- Удаление карточки удаляет связи
 );
 
 -- История и параметры повторений
+-- Реализует алгоритм интервального повторения SM-2 для каждой карточки
+-- Отслеживает прогресс обучения и рассчитывает оптимальные интервалы повторения
 CREATE TABLE Reviews (
-    review_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    card_id INTEGER NOT NULL,
-    ease_factor REAL NOT NULL DEFAULT 2.5, -- Фактор легкости (из алгоритма SM-2)
-    interval_days INTEGER NOT NULL DEFAULT 1, -- Интервал в днях до след. повторения
-    next_review_date TEXT NOT NULL, -- Дата следующего повторения
-    repetitions INTEGER NOT NULL DEFAULT 0, -- Количество повторений
-    reviewed_at TEXT DEFAULT (datetime('now')), -- Дата и время этого повторения
-    grade INTEGER, -- Оценка пользователя (0-5)
-    FOREIGN KEY (card_id) REFERENCES Cards(card_id) ON DELETE CASCADE
+    review_id INTEGER PRIMARY KEY AUTOINCREMENT,      -- Уникальный идентификатор записи о повторении
+    card_id INTEGER NOT NULL,                         -- Карточка, для которой записывается повторение
+    ease_factor REAL NOT NULL DEFAULT 2.5,            -- Фактор легкости из алгоритма SM-2 (определяет как быстро увеличивается интервал)
+    interval_days INTEGER NOT NULL DEFAULT 1,         -- Текущий интервал повторения в днях
+    next_review_date TEXT NOT NULL,                   -- Дата следующего запланированного повторения
+    repetitions INTEGER NOT NULL DEFAULT 0,           -- Количество успешных повторений подряд
+    reviewed_at TEXT DEFAULT (datetime('now')),       -- Дата и время текущего повторения
+    grade INTEGER,                                    -- Оценка пользователя (0-5), где 5 - "очень легко", 0 - "совсем не помню"
+    FOREIGN KEY (card_id) REFERENCES Cards(card_id) ON DELETE CASCADE  -- Связь с карточкой
 );
 
 -- Индексы для оптимизации запросов
+-- Ускоряют поиск и сортировку данных в больших таблицах
+
+-- Быстрый поиск карточек по пользователю (для личного кабинета)
 CREATE INDEX idx_cards_user_id ON Cards(user_id);
+
+-- Оптимизация запросов истории повторений по карточкам
 CREATE INDEX idx_reviews_card_id ON Reviews(card_id);
+
+-- Быстрый поиск карточек, готовых к повторению (основной запрос приложения)
 CREATE INDEX idx_reviews_next_review_date ON Reviews(next_review_date);
+
+-- Поиск колод пользователя
 CREATE INDEX idx_decks_user_id ON Decks(user_id);
+
+-- Оптимизация работы со связями колод и карточек
 CREATE INDEX idx_deck_cards_deck_id ON Deck_Cards(deck_id);
 CREATE INDEX idx_deck_cards_card_id ON Deck_Cards(card_id);
