@@ -1,0 +1,116 @@
+@startuml Daily_Review_Session_Sequence
+actor "Пользователь" as User
+participant "Интерфейс" as UI
+participant "Контроллер" as Controller
+participant "Сервис карточек" as CardService
+participant "Алгоритм SM-2" as SM2Algorithm
+participant "Сервис статистики" as StatsService
+participant "База данных" as DB
+
+' === УТРЕННИЙ ОБЗОР КАРТОЧЕК ===
+note over User, DB: Утренний обзор карточек для повторения
+
+User -> UI: Открывает приложение для повторения
+activate User
+activate UI
+
+UI -> Controller: GET /api/cards/due-today
+activate Controller
+
+Controller -> CardService: getCardsDueForReview(user_id)
+activate CardService
+
+CardService -> DB: SELECT * FROM cards\nWHERE next_review <= NOW()\nAND user_id = ?\nORDER BY next_review ASC
+activate DB
+DB -> CardService: due_cards
+deactivate DB
+
+CardService -> CardService: prioritizeCards(due_cards)
+activate CardService
+CardService -> Controller: DailyReviewResponse(cards)
+deactivate CardService
+
+Controller -> UI: 200 OK\n {due_cards: [...], count: X}
+deactivate Controller
+
+UI -> UI: Отобразить "Карточки для повторения сегодня"
+UI -> UI: Показать прогресс-бар (X из Y)
+UI -> User: Показать первую карточку для повторения
+
+' === СЕССИЯ ПОВТОРЕНИЯ ===
+note over User, DB: Сессия повторения карточек
+
+loop Для каждой карточки в сессии
+    User -> UI: Оценивает знание карточки (0-5)
+    UI -> Controller: POST /api/cards/{id}/review\n {rating: 0..5}
+    activate Controller
+    
+    Controller -> CardService: processReview(card_id, rating)
+    activate CardService
+    
+    CardService -> DB: SELECT * FROM cards WHERE id = card_id
+    activate DB
+    DB -> CardService: card_data
+    deactivate DB
+    
+    CardService -> SM2Algorithm: calculateNextInterval(rating, card_data)
+    activate SM2Algorithm
+    SM2Algorithm -> CardService: {new_interval, next_review_date}
+    deactivate SM2Algorithm
+    
+    CardService -> DB: UPDATE cards SET\ninterval_days = new_interval,\nnext_review = next_review_date,\nreview_count = review_count + 1\nWHERE id = card_id
+    activate DB
+    DB -> CardService: success
+    deactivate DB
+    
+    CardService -> StatsService: trackReview(card_id, rating, timestamp)
+    activate StatsService
+    StatsService --> CardService: tracked
+    deactivate StatsService
+    
+    CardService -> Controller: SuccessResponse(next_review_date)
+    deactivate CardService
+    
+    Controller -> UI: 200 OK\n {next_review, cards_remaining}
+    deactivate Controller
+    
+    UI -> UI: Обновить прогресс сессии
+    alt Карточки еще остались
+        UI -> User: Показать следующую карточку
+    else Все карточки пройдены
+        UI -> User: Показать "Сессия завершена!"
+    end
+end
+
+' === ВЕЧЕРНЯЯ СТАТИСТИКА ===
+note over User, DB: Вечерняя статистика и аналитика
+
+User -> UI: Запрашивает отчет о сессии
+UI -> Controller: GET /api/stats/daily-session
+activate Controller
+
+Controller -> StatsService: getSessionStats(user_id, date)
+activate StatsService
+
+StatsService -> DB: SELECT\nCOUNT(*) as reviewed_today,\nAVG(rating) as avg_score,\nSUM(CASE WHEN rating >= 4 THEN 1 ELSE 0 END) as well_known\nFROM review_logs\nWHERE user_id = ? AND DATE(timestamp) = TODAY()
+activate DB
+DB -> StatsService: stats_data
+deactivate DB
+
+StatsService -> DB: SELECT deck_name, COUNT(*) as cards_reviewed\nFROM cards c\nJOIN decks d ON c.deck_id = d.id\nWHERE c.last_reviewed >= TODAY()\nAND c.user_id = ?\nGROUP BY deck_id
+activate DB
+DB -> StatsService: deck_stats
+deactivate DB
+
+StatsService -> Controller: SessionStatsReport(stats_data, deck_stats)
+deactivate StatsService
+
+Controller -> UI: 200 OK\n {reviewed_today, avg_score, well_known, deck_stats}
+deactivate Controller
+
+UI -> UI: Сгенерировать визуальный отчет с графиками
+UI -> User: Показать достижения за сессию\nи рекомендации на завтра
+
+deactivate UI
+deactivate User
+@enduml
