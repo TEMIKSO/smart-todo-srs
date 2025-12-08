@@ -1,0 +1,42 @@
+@startuml
+left to right direction
+actor Пользователь as User
+rectangle "Система интервального повторения" {
+    usecase "Добавить карточку" as AddCard
+    usecase "Повторить карточки" as Review
+    usecase "Оценить знание" as Rate
+    usecase "Посмотреть прогресс" as Stats
+    usecase "Управлять колодами" as Decks
+    usecase "Найти карточку" as Search
+    usecase "Отфильтровать" as Filter
+    usecase "Отсортировать" as Sort
+    usecase "Алгоритм SM-2" as SM2
+    usecase "Автосохранение" as Save
+    usecase "Проверить данные" as Validate
+    usecase "Напомнить" as Notify
+
+' Include
+AddCard .> Validate : <<include>>
+Review .> SM2 : <<include>>
+Rate .> SM2 : <<include>>
+SM2 .> Save : <<include>>
+Save .> AddCard : <<include>>
+
+' Extend  
+Search .> Filter : <<extend>>
+Search .> Sort : <<extend>>
+Filter .> Stats : <<extend>>
+Sort .> Stats : <<extend>>
+Notify .> Review : <<extend>>
+
+' User
+User --> AddCard
+User --> Review
+User --> Rate
+User --> Stats
+User --> Decks
+User --> Search
+User --> Filter
+User --> Sort
+}
+@enduml
