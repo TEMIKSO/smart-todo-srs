@@ -1,0 +1,57 @@
+@startuml Add_Flashcard_Sequence
+actor "Пользователь" as User
+participant "Интерфейс" as UI
+participant "Контроллер" as Controller
+participant "Сервис карточек" as CardService
+participant "Сервис планирования" as SchedulerService
+participant "База данных" as DB
+
+User -> UI: Вводит данные карточки\n(вопрос, ответ, тег/колода)
+activate User
+activate UI
+UI -> Controller: POST /api/cards\n {question, answer, deck_id}
+activate Controller
+
+Controller -> CardService: createCard(cardData)
+activate CardService
+
+CardService -> CardService: validateCardData(cardData)
+activate CardService
+
+alt Данные валидны
+    CardService -> DB: INSERT INTO cards\n(question, answer, deck_id, \nnext_review, interval_days, ease_factor)
+    activate DB
+    note right DB
+        next_review = NOW() + 1 день
+        interval_days = 1
+        ease_factor = 2.5 (по умолчанию SM-2)
+    end note
+    DB -> CardService: card_id
+    deactivate DB
+    
+    CardService -> SchedulerService: scheduleReview(card_id, interval_days=1)
+    activate SchedulerService
+    SchedulerService -> SchedulerService: Создать напоминание\nна 24 часа
+    SchedulerService --> CardService: Напоминание запланировано
+    deactivate SchedulerService
+    
+    CardService -> Controller: SuccessResponse(card_id, next_review_date)
+    deactivate CardService
+    
+    Controller -> UI: 201 Created\n {card_id, next_review}
+    deactivate Controller
+    
+    UI -> UI: Показать уведомление "Карточка создана"
+    UI -> UI: Обновить список карточек
+    UI -> User: Отобразить новую карточку\nс датой след. повторения
+    
+else Данные невалидны
+    CardService -> Controller: ErrorResponse("Неверные данные карточки")
+    deactivate TaskService
+    Controller -> UI: 400 Bad Request\n {error_message}
+    deactivate Controller
+    UI -> User: Показать ошибку валидации
+end
+deactivate UI
+deactivate User
+@enduml
