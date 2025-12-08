@@ -1,0 +1,51 @@
+@startuml Review_Card_Sequence
+    actor "Пользователь" as User
+    participant "Интерфейс" as UI
+    participant "Контроллер" as Controller
+    participant "Сервис карточек" as CardService
+    participant "Алгоритм SM-2" as SM2Algorithm
+    participant "База данных" as DB
+    participant "Сервис планирования" as SchedulerService
+    
+    User -> UI: Оценивает знание карточки\n(оценка 0-5)
+    activate User
+    activate UI
+    UI -> Controller: POST /api/cards/{id}/review\n {rating: 0..5}
+    activate Controller
+    
+    Controller -> CardService: processReview(card_id, rating)
+    activate CardService
+    
+    CardService -> DB: SELECT * FROM cards\nWHERE id = card_id
+    activate DB
+    DB -> CardService: card_data (question, answer,\ninterval, ease_factor, review_count)
+    deactivate DB
+    
+    CardService -> SM2Algorithm: calculateNextInterval(rating, card_data)
+    activate SM2Algorithm
+    SM2Algorithm -> CardService: {new_interval, new_ease_factor,\nnext_review_date}
+    deactivate SM2Algorithm
+    
+    CardService -> DB: UPDATE cards\nSET interval_days = new_interval,\n    ease_factor = new_ease_factor,\n    next_review = next_review_date,\n    review_count = review_count + 1,\n    last_reviewed = NOW()
+    activate DB
+    DB -> CardService: rows_affected
+    deactivate DB
+    
+    CardService -> SchedulerService: scheduleNextReview(card_id, next_review_date)
+    activate SchedulerService
+    SchedulerService -> SchedulerService: Запланировать напоминание\nна next_review_date
+    SchedulerService --> CardService: scheduled
+    deactivate SchedulerService
+    
+    CardService -> Controller: SuccessResponse(next_review_date, new_interval)
+    deactivate CardService
+    
+    Controller -> UI: 200 OK\n {next_review_date, interval_days}
+    deactivate Controller
+    
+    UI -> UI: Визуально обновить карточку\n(цвет по интервалу)
+    UI -> UI: Обновить статистику прогресса\n(изучено сегодня, общий прогресс)
+    UI -> User: Показать следующую карточку\nили "сессия завершена"
+    deactivate UI
+    deactivate User
+@enduml
