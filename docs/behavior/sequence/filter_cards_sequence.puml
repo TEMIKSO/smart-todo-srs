@@ -1,0 +1,38 @@
+@startuml Filter_Cards_Sequence
+actor "Пользователь" as User
+participant "Интерфейс" as UI
+participant "Контроллер" as Controller
+participant "Сервис карточек" as CardService
+participant "База данных" as DB
+
+User -> UI: Выбирает колоду/тег\nдля фильтрации
+activate User
+activate UI
+
+UI -> Controller: GET /api/cards?deck_id={deck_id}\n&status=for_review
+activate Controller
+
+Controller -> CardService: getCardsByDeck(deck_id, filters)
+activate TaskService
+
+TaskService -> DB: SELECT * FROM cards\nWHERE deck_id = ?\nAND next_review <= NOW()\nORDER BY next_review ASC
+activate DB
+
+DB -> TaskService: cards_list
+deactivate DB
+
+TaskService -> TaskService: formatCardsForDisplay(cards_list)
+activate TaskService
+
+TaskService -> Controller: CardsListResponse(cards)
+deactivate TaskService
+
+Controller -> UI: 200 OK\n{cards_array}
+deactivate Controller
+
+UI -> UI: Очистить текущий список
+UI -> UI: Отобразить отфильтрованные карточки\n(с датами повторения)
+UI -> User: Показать только карточки\nвыбранной колоды
+deactivate UI
+deactivate User
+@enduml
